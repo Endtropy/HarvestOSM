@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/HarvestOSM.iml" filepath="$PROJECT_DIR$/.idea/HarvestOSM.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/harvestosm.iml" filepath="$PROJECT_DIR$/.idea/harvestosm.iml" />
     </modules>
   </component>
 </project>

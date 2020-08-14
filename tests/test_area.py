@@ -13,32 +13,23 @@ class TestStatement(unittest.TestCase):
         self.poly_shape = geometry.Polygon([(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)])
         self.poly_coords = [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0), (0.0, 0.0)]
         self.bbox_coords = [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]
-        self.poly = Area.from_shape(self.poly_shape)
-
-    def test_from_shape(self):
-        point = Area.from_shape(self.point_shape)
-        line  = Area.from_shape(self.line_shape)
-        poly  = Area.from_shape(self.poly_shape)
-        self.assertEqual(point.coords, self.point_coords)
-        self.assertEqual(line.coords, self.line_coords)
-        self.assertEqual(poly.coords, self.poly_coords)
+        self.area = Area(self.poly_shape)
 
     def test_from_bbox(self):
-        bbox = Area.from_bbox((0.0, 0.0, 1.0, 1.0))
-        self.assertEqual(bbox.coords, self.bbox_coords)
+        area = Area.from_bbox((0.0, 0.0, 1.0, 1.0))
+        self.assertEqual(area.coords, self.poly_coords)
 
-    def test_poly(self):
-        self.assertEqual(self.poly.poly, '(poly: "0.0 0.0 0.0 1.0 1.0 1.0 1.0 0.0 0.0 0.0")')
+    def test_coords(self):
+        area = Area(self.poly_shape)
+        self.assertEqual(area.coords, self.poly_coords)
+        area = Area(self.line_shape)
+        self.assertEqual(area.coords, self.line_coords)
 
-    def test_points(self):
-        self.assertEqual(self.poly.points, '(poly: "(0.0, 0.0) (0.0, 1.0) (1.0, 1.0) (1.0, 0.0) (0.0, 0.0)")')
+    def test_overpass_poly(self):
+        self.assertEqual(self.area.overpass_poly, '(poly: "0.0 0.0 0.0 1.0 1.0 1.0 1.0 0.0 0.0 0.0")')
 
-    def test_bbox(self):
-        self.assertEqual(self.poly.bbox, '(0.0,0.0,1.0,1.0)')
-
-    def test_tuple_coords(self):
-        tup = Area.from_coords(((0.0, 0.0), (1.0, 1.0)))
-        self.assertEqual(tup.points, '(poly: "(0.0, 0.0) (1.0, 1.0)")')
+    # def test_bbox(self):
+    #     self.assertEqual(self.area.bbox, '(0.0,0.0,1.0,1.0)')
 
 if __name__ == '__main__':
     unittest.main()

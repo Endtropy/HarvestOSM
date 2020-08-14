@@ -5,7 +5,7 @@ class Overpass:
     # defaults for Overpass class
     _endpoint = "https://overpass-api.de/api/interpreter"
     _headers = {"Accept-Charset": "utf-8;q=0.7,*;q=0.7"}
-    _timeout = 25  # seconds
+    _timeout = 120  # seconds
     _proxies = None
 
     def __init__(self, query, *args, **kwargs):

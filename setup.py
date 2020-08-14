@@ -1,8 +1,8 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
-    name="HarvestOSM",
-    packages=['harvestosm'],
+    name="harvestosm",
+    packages=find_packages(),
     version="0.1",
     description="Tool for  generating Overpass queries and harvesting data from OpenStreetMap",
     long_description="See README.md",
@@ -10,6 +10,7 @@ setup(
     author_email="michal.opletal@gisat.cz",
     url="",
     license="",
+    include_package_data=True,
     keywords=["openstreetmap", "overpass", "wrapper"],
     classifiers=[
         "License ::",

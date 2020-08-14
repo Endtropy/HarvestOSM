@@ -1,87 +1,103 @@
-from utils import utils
+from utils import utils, decorators
+from shapely.geometry.base import BaseGeometry
+from shapely.geometry import shape, Polygon
+from shapely.ops import transform
+import fiona
 
-# dodelat around
 
-class Area:
 
-    def __init__(self, coords, out):
-        """
-        :param name: name of area
-        :param coords: list of coords tupples (lon,lat)
-        """
-        self.coords = coords
-        self.out = out
-        self._name = utils.random_name()
 
-    @classmethod
-    def from_shape(cls, shape):
-        """ Shapely objects with coords set as (lon,lat)"""
-        coords = Area._get_coords(shape)
-
-        return cls(coords, out='poly')
-
-    @classmethod
-    def from_coords(cls, coords):
-        """ Coorodinates as list of coords tuples (lon,lat)"""
-        return cls(coords, out='points')
-
-    @classmethod
-    def from_bbox(cls, bbox):
-        """Bounding region (min_lat, min_lon, max_lat, max_lon) """
-        coords = [(bbox[0], bbox[1]), (bbox[2], bbox[1]), (bbox[2], bbox[3]), (bbox[0], bbox[3])]
-        return cls(coords, out='bbox')
-
-    @property
-    def poly(self):
-        """Return overpass area by poly statement as string ie. return (poly: "lat1 lon1 lat2 lon2...")"""
-        process = ['_switch_pair_order', '_dissolve_pair_list', '_overpass_poly']
-        return Area._execute_process(process, self.coords)
-
-    @property
-    def points(self):
-        """Return overpass area by poly statement as string ie. return (poly: "lat1 lon1 lat2 lon2...")"""
-        process = ['_switch_pair_order', '_overpass_poly']
-        return Area._execute_process(process, self.coords)
-
-    @property
-    def bbox(self):
-        """Returns minimum bounding region (minx, miny, maxx, maxy)"""
-        min_lat = min(item[1] for item in self.coords)
-        min_lon = min(item[0] for item in self.coords)
-        max_lat = max(item[1] for item in self.coords)
-        max_lon = max(item[0] for item in self.coords)
-
-        return f'({min_lat},{min_lon},{max_lat},{max_lon})'
-
-    @staticmethod
-    def _execute_process(process, to_process):
-        res = to_process
-        for method in process:
-            res = getattr(Area, method).__call__(res)
-        return res
-
-    @staticmethod
-    def _get_coords(shape):
-        """Extract coords from shapely object"""
-        if shape.geom_type == 'Polygon':
-            return list(shape.exterior.coords)
-        elif shape.geom_type in ['Point','LinearRing','LineString']:
-            return list(shape.coords)
-        else:
-            print(f'Shape {shape.geom_type} is not supported')
-
-    @staticmethod
-    def _switch_pair_order(pair_list):
-        """Switch order og lon lat coord to lat long
-        (used for generating overpass poly query)"""
-        return [(second, first) for first, second in pair_list]
-
-    @staticmethod
-    def _dissolve_pair_list(pair_list):
-        """dissolve list of tuples to list of following elements
-        (used for generating overpass poly query)"""
-        return [item for pair in pair_list for item in pair]
-
-    @staticmethod
-    def _overpass_poly(coords_list):
-        return '(poly: "{}")'.format(' '.join([str(x) for x in coords_list]))
+# class Geometry:
+#     """Base geometry object based on shapely"""
+#     def __init__(self, geom):
+#         if isinstance(geom, BaseGeometry):
+#             self.geom = geom
+#         else:
+#             raise TypeError('Input geometry can be defined as shapely object, bbox, geojson object or geojson path')
+#
+#     @classmethod
+#     def from_geojson(cls, geojson):
+#         """construct from geojson"""
+#         if geojson.is_valid:
+#             if len(geojson['features']) == 1:
+#                 return cls(shape(geojson['features'][0].get('geometry')))
+#             else:
+#                 raise ValueError('AOI have to be defined by one single polygon ')
+#         else:
+#             raise TypeError('Invalid geojson object')
+#
+#     @classmethod
+#     def from_bbox(cls, bbox):
+#         """Bounding region (min_lat, min_lon, max_lat, max_lon) """
+#         return cls(Geometry._bbox2shapely(bbox))
+#
+#     @classmethod
+#     def from_file(cls, file):
+#         try:
+#             with fiona.open(file, 'r') as src:
+#                 if len(src) > 0:
+#                     print('Version 0.2: Supports only one singlepart area')
+#                     return cls(shape(src[0]['geometry']))
+#         except TypeError:
+#             raise (f'{file} is not path')
+#
+#     @property
+#     @decorators.wra2plist
+#     def coords(self):
+#         if hasattr(self.geom, 'exterior'):
+#             return self.geom.exterior.coords
+#         elif self.geom.type == 'MultiPolygon':
+#             return self.geom[0].exterior.coords
+#         else:
+#             return self.geom.coords
+#
+#     @property
+#     def bbox(self):
+#         return self.geom.bounds
+#
+#     def reverse(self):
+#         return transform(lambda x, y: (y, x), self.geom)
+#
+#     @staticmethod
+#     def _bbox2shapely(bbox):
+#         """ Converts the input coordination representation (see the constructor docstring for a list of valid
+#         representations) into a flat tuple
+#
+#         :param bbox: A bbox in one of several forms listed in the class description.
+#         :return: shapely.geometry.polygon
+#         :raises: TypeError
+#         """
+#         if isinstance(bbox, (list, tuple)):
+#             if len(bbox) == 4:
+#                 points = tuple(map(float, bbox))
+#                 return Polygon(Geometry._bbox2poly(points))
+#             if len(bbox) == 2 and all([isinstance(point, (list, tuple)) for point in bbox]):
+#                 points = [coor for coors in bbox for coor in coors]
+#                 return Polygon(Geometry._bbox2poly(points))
+#             raise TypeError('Expected a valid list or tuple representation of a bbox')
+#         elif isinstance(bbox, str):
+#             try:
+#                 points = tuple([float(s) for s in bbox.replace(',', ' ').split() if s])
+#                 return Polygon(list(zip(points[::2], points[1::2])))
+#             except ValueError:
+#                 raise ValueError('Invalid bbox representation')
+#         else:
+#             raise TypeError('Invalid bbox representation')
+#
+#     @staticmethod
+#     def _bbox2poly(bbox):
+#         """From tuple (minx, miny, maxx, maxy) calculate remaining corners"""
+#         minx, miny, maxx, maxy = bbox
+#         return (minx, miny), (maxx, miny), (maxx, maxy), (minx, maxy)
+#
+#
+# class Area(Geometry):
+#     """Class for overpass area statements"""
+#     def __init__(self, geom):
+#         self.name = utils.random_name()
+#         super(Area, self).__init__(geom)
+#
+#     @property
+#     def overpass_poly(self):
+#         return '(poly: "{}")'.format(' '.join([str(p) for xy in
+#                                                Area(self.reverse()).coords.__iter__() for p in xy]))
