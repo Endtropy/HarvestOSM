@@ -1,12 +1,57 @@
 #!/usr/bin/env python
 
-from utils.utils import get_name
-from collections import namedtuple, OrderedDict
-# from harvestosm.area import Area
-from utils.decorators import option
-from os import path
+from harvestosm.utils import get_name, BASE_PATH
+from collections import OrderedDict
+from shapely.ops import transform
+from harvestosm.decorators import wra2plist
+from shapely.geometry.base import BaseGeometry
+from shapely.geometry import shape
+from harvestosm.base import BaseMeta
+from harvestosm.overpass import Overpass
 
+# shared name iterator
 gen_name = get_name().__iter__()
+
+# TODO:
+# dodelat geometrii podel linie a bod, zatim to hazi typeerror
+# cached config
+# geopandas output
+
+
+class Area(metaclass=BaseMeta):
+    CONFIG = BASE_PATH / 'config.json' # define together with BaseMeta metaclass config properties
+
+    def __init__(self, geom):
+        if isinstance(geom, BaseGeometry) and geom.type in ['Polygon', 'MultiPolygon']:
+            self.geom = geom
+        elif hasattr(geom, '__geo_interface__'):
+            try:
+                self.geom = shape(geom.__geo_interface__)
+            except ValueError:
+                self.geom = shape(geom.__geo_interface__.get('features')[0].get('geometry'))
+        else:
+            raise TypeError('Input geometry have to by shapely object')
+
+    @property
+    def overpass_poly(self):
+        """Return Overpass polygon representation of AOI """
+        if not self.lonlat:
+            return '(poly: "{}")'.format(' '.join([str(p) for xy in self.coords.__iter__() for p in xy]))
+        return '(poly: "{}")'.format(' '.join([str(p) for xy in Area(self.reverse()).coords.__iter__() for p in xy]))
+
+    def reverse(self):
+        return transform(lambda x, y: (y, x), self.geom)
+
+    @property
+    @wra2plist
+    def coords(self):
+        if hasattr(self.geom, 'exterior'):
+            return self.geom.exterior.coords
+        elif self.geom.type == 'MultiPolygon':
+            return self.geom[0].exterior.coords
+        else:
+            return self.geom.coords
+
 
 class Tag:
 
@@ -34,7 +79,6 @@ class Tag:
             return ''.join(f'["{key}"]' if val is None else f'["{key}"="{val}"]' for key, val in tag.items())
 
 
-
 class Set:
     def __init__(self, element, area, name):
         self.element = element
@@ -42,7 +86,11 @@ class Set:
         self.area = area
 
     def __str__(self):
-        return f'{self.element}{self.area}->.{self.name};'
+        if hasattr(self.area, 'overpass_poly'):
+            return f'{self.element}{self.area.overpass_poly}->.{self.name};'
+        else:
+            return f'{self.element}{self.area}->.{self.name};'
+
 
 class TagSet(Set):
 
@@ -51,38 +99,86 @@ class TagSet(Set):
         super().__init__(element, area, name)
 
     def __str__(self):
-        return f'{self.element}.{self.area}{self.tag}->.{self.name};'
+        if hasattr(self.area, 'overpass_poly'):
+            return f'{self.element}.{self.area.overpass_poly}{self.tag}->.{self.name};'
+        else:
+            return f'{self.element}.{self.area}{self.tag}->.{self.name};'
 
 
-class Statement:
+class SetContainer(OrderedDict):
+
+    @property
+    def last(self):
+        return [k for k in self.keys()][self.__len__()-1]
+
+
+class Statement(metaclass=BaseMeta):
+    """
+    Base class for generation of overpass statement
+
+    Parameters:
+        lonlat - (bool, defoult: True) Parameter specify order of coordinates in input geometry. If true, order of
+                                       coordinates is changed into order required by overpass i.e lat lon
+    """
+    CONFIG = BASE_PATH / 'config.json' # define together with BaseMeta metaclass config properties
 
     def __init__(self, element, area, tag=None):
 
         area_name = next(gen_name)
-        self.container = OrderedDict({area_name: Set(element, area, area_name)})
+        self.container = SetContainer({area_name: Set(element, Area(area), area_name)})
 
         if tag is not None:
             tag_name = next(gen_name)
             self.container.update({tag_name: TagSet(element, area_name, tag_name, tag)})
 
+        self.overpass = Overpass()
+
     def __str__(self):
-        return '\n'.join(val.__str__() for _, val in self.container.items())
+        return ' '.join(val.__str__() for _, val in self.container.items())
 
     def union(self, other):
-        return self.math(other, '')
+        """Union of two OSM sets i.e. (.A; .B;)->.C; """
+        return self._math(other, '')
 
-    def math(self, other, operator):
+    def difference(self, other):
+        """Difference of two OSM sets i.e. (.A; - .B;)->.C; """
+        return self._math(other, '-')
+
+    def _math(self, other, operator):
         name = next(gen_name)
-
-        try:
-            self.operation.update(other.operation)
-            self.operation.update({name : f'(.{self.last}; {operator} .{other.last};)->.{name };'})
-        except StopIteration:
-            self.operation.update({name : f'(.{self.last}; {operator} .{other.last};)->.{name};'})
-
-        self.statement.update(other.statement)
-        self.last = name
+        operation = {name: f'(.{self.container.last}; {operator} .{other.container.last};)->.{name};'}
+        self.container.update(other.container)
+        self.container.update(operation)
         return self
+
+    def intersection(self, other, element='node'):
+        name = next(gen_name)
+        operation = {name: f'{element}.{self.container.last}.{other.container.last};->.{name};'}
+        self.container.update(other.container)
+        self.container.update(operation)
+        return self
+
+    def recurse(self, recurse):
+        if recurse in ['<', '<<', '>>', '>']:
+            name = next(gen_name)
+            operation = {name: f'(.{self.container.last}; {recurse} ;)->.{name};'}
+            self.container.update(operation)
+            return self
+        else:
+            raise ValueError(f'Valid recurse symbols are <, <<, >>, >, Not {recurse}')
+
+    @property
+    def query(self):
+        return ' '.join([f'[timeout:{self.overpass_timeout}][out:{self.overpass_out_format}][maxsize:'
+                          f'{self.overpass_maxsize}];', self.__str__(),f'.{self.container.last} {self.overpass_out};'])
+
+    def osm_json(self):
+        self.overpass.query = self.query
+        return self.overpass._osm_json
+
+    def to_geojson(self):
+        self.overpass.query = self.query
+        return self.overpass.geojson
 
 
 class Node(Statement):
@@ -96,139 +192,13 @@ class Way(Statement):
 
 
 if __name__ == '__main__':
-    n=Node('area','tag')
+    import geojson
+    p = "C:\Michal\gisat\projects\PUCS\singleparts.geojson"
+    with open(p, 'r') as file:
+        area = geojson.load(file)
+    q = Way(area, tag='building')
+    print()
 
 
 
-
-# class Tag:
-#
-#     def __init__(self, tag=None):
-#         if not isinstance(tag, (list, str, dict)) and tag is not None:
-#             raise ValueError(f'Tag can be string, dictionary or list of strings or None and'
-#                              f' dictionaries. Not {type(tag)}')
-#         self.tag = tag
-#
-#     def __repr__(self):
-#         if isinstance(self.tag, (str, dict)):
-#             return self.print_tag(self.tag)
-#         elif isinstance(self.tag, list) and all(isinstance(val, str) or isinstance(val, dict) for val in self.tag):
-#             return ''.join(self.print_tag(val) for val in self.tag)
-#         elif self.tag is None:
-#             return ''
-#
-#     def __str__(self):
-#         return self.__repr__()
-#
-#     @staticmethod
-#     def print_tag(tag):
-#         if isinstance(tag, str):
-#             return f'["{tag}"]'
-#         elif isinstance(tag, dict):
-#             return ''.join(f'["{key}"]' if val is None else f'["{key}"="{val}"]' for key, val in tag.items())
-#
-#
-# class Operation(OrderedDict):
-#     def __str__(self):
-#         return '\n'.join(v for _, v in self.items())
-
-
-# class OSMset(OrderedDict):
-#
-#     def __init__(self):
-#         self.name
-#
-#     def __str__(self):
-#         return '\n'.join(f'{val.element}{val.tag}{val.area.overpass_poly}->.{val.name};' for _, val in self.items())
-
-
-
-
-
-
-
-# @option(timeout=360, out='body geom', format_output='json')
-# class Statement:
-#     OSMSET = namedtuple('STATEMENT', ['element', 'tag', 'area', 'name'])
-#
-#     def __init__(self, element, tag, area):
-#         if not element in ['node', 'way', 'rel', 'area']:
-#             raise ValueError(f'OSM element can be node, way, rel or area not {element}')
-#
-#         elif isinstance(area, Area):
-#             pass
-#         elif isinstance(area, dict):
-#             area = Area.from_geojson(area)
-#         elif isinstance(area, (str, list)):
-#             area = Area.from_bbox(area)
-#         elif isinstance(area, str) and path.isfile(area):
-#             area = Area.from_file(area)
-#         else:
-#             raise TypeError('Unsupported type of area. Area can be defined as bbox, shapely object or geojson')
-#
-#         name = random_name()
-#         self.statement = OSMset({name: self.OSMSET(element, Tag(tag), area, name)})
-#         self.operation = Operation()
-#         self.last = name
-#
-#     def __str__(self):
-#         code = [f'[out:{self.format_output}][timeout:{self.timeout}];']
-#         code += [str(getattr(self, container)) for container in ['statement', 'operation']]
-#         try:
-#             code += [f'.{self.last} out {self.out};']
-#         except StopIteration:
-#             code += [f'.{self.last} out {self.out};']
-#         return '\n'.join(code)
-#
-#     def __add__(self, other):
-#         return self.math(other, '')
-#
-#     def __sub__(self, other):
-#         return self.math(other, '-')
-#
-#     def math(self, other, operator):
-#         name = random_name()
-#
-#         try:
-#             self.operation.update(other.operation)
-#             self.operation.update({name : f'(.{self.last}; {operator} .{other.last};)->.{name };'})
-#         except StopIteration:
-#             self.operation.update({name : f'(.{self.last}; {operator} .{other.last};)->.{name};'})
-#
-#         self.statement.update(other.statement)
-#         self.last = name
-#         return self
-#
-#     def intersection(self, other, element='node'):
-#         name = random_name()
-#         self.operation.update({name: f'{element}.{self.last}.{other.last};->.{name};'})
-#         self.operation.update(other.operation)
-#         self.statement.update(other.statement)
-#         self.last = name
-#         return self
-#
-#     def recurse(self, recurse):
-#         if recurse in ['<', '<<', '>>', '>']:
-#             name = random_name()
-#             self.operation.update({name: f'(.{self.last}; {recurse} ;)->.{name};'})
-#             self.last = name
-#             return self
-#         else:
-#             raise ValueError(f'Valid recurse symbols are <, <<, >>, >, Not {recurse}')
-
-
-# if __name__ == '__main__':
-#     from shapely.geometry import Polygon
-#     p = Polygon([(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)])
-#     p2 = Polygon([(1.0, 1.0), (2.0, 1.0), (2.0, 2.0), (1.0, 2.0)])
-#     a = Area(p)
-#     a2 = Area(p2)
-#     t = Tag('a')
-#     st1 = Statement('node', t, a)
-#     st2 = Statement('way', t, a)
-#     st3 = Statement('rel', t, a2)
-#
-#     s=st1+st2.recurse('<')
-#     s=s.intersection(st3)
-#     print(s)
 

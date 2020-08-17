@@ -1,0 +1,11 @@
+{
+  "lonlat": true,
+  "overpass_timeout": 360,
+  "overpass_out": "out body geom",
+  "overpass_out_format": "json",
+  "overpass_maxsize": 1073741824,
+  "overpass_endpoint": "https://overpass-api.de/api/interpreter",
+  "request_header" : {"Accept-Charset": "utf-8;q=0.7,*;q=0.7"},
+  "request_timeout" : 120,
+  "request_proxies" : null
+}
