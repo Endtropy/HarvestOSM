@@ -22,17 +22,17 @@ class TesHarvest(unittest.TestCase):
         # general constructor
         s = Statement(self.element, self.area,  self.tag)
         res = ''.join(ch for ch in s.__str__() if not ch.isupper())
-        self.assertEqual(res, f'{self.element}{self.area_overpass}->.;\n{self.element}.["{self.tag}"]->.;')
+        self.assertEqual(res, f'{self.element}{self.area_overpass}->.; {self.element}.["{self.tag}"]->.;')
 
         # Node child
         n = Node(self.area, self.tag)
         res = ''.join(ch for ch in n.__str__() if not ch.isupper())
-        self.assertEqual(res, f'node{self.area_overpass}->.;\nnode.["{self.tag}"]->.;')
+        self.assertEqual(res, f'node{self.area_overpass}->.; node.["{self.tag}"]->.;')
 
         # Way child
         w = Way(self.area, self.tag)
         res = ''.join(ch for ch in w.__str__() if not ch.isupper())
-        self.assertEqual(res, f'way{self.area_overpass}->.;\nway.["{self.tag}"]->.;')
+        self.assertEqual(res, f'way{self.area_overpass}->.; way.["{self.tag}"]->.;')
 
         # Without tag
         t = Way(self.area)
@@ -43,30 +43,30 @@ class TesHarvest(unittest.TestCase):
         # set tag se dict
         t = Node(self.area, tag={'key1': 'value1', 'key2': 'value2'})
         res = ''.join(ch for ch in t.__str__() if not ch.isupper())
-        self.assertEqual(res, f'node{self.area_overpass}->.;\nnode.["key1"="value1"]["key2"="value2"]->.;')
+        self.assertEqual(res, f'node{self.area_overpass}->.; node.["key1"="value1"]["key2"="value2"]->.;')
 
         # set tag as list
         t = Node(self.area, tag=['value1', 'value2'])
         res = ''.join(ch for ch in t.__str__() if not ch.isupper())
-        self.assertEqual(res, f'node{self.area_overpass}->.;\nnode.["value1"]["value2"]->.;')
+        self.assertEqual(res, f'node{self.area_overpass}->.; node.["value1"]["value2"]->.;')
 
     def test_math(self):
         # union
         n = Node(self.area, self.tag)
         w = Way(self.area)
         res = ''.join(ch for ch in n.union(w).__str__() if not ch.isupper())
-        self.assertEqual(res, f'node{self.area_overpass}->.;\nnode.["{self.tag}"]->.;'
-                              f'\nway{self.area_overpass}->.;\n'f'(.;  .;)->.;')
+        self.assertEqual(res, f'node{self.area_overpass}->.; node.["{self.tag}"]->.;'
+                              f' way{self.area_overpass}->.; (.;  .;)->.;')
         # intersect
         n = Node(self.area)
         w = Way(self.area)
         res = ''.join(ch for ch in n.intersection(w).__str__() if not ch.isupper())
-        self.assertEqual(res, f'node{self.area_overpass}->.;\nway{self.area_overpass}->.;\nnode..;->.;')
+        self.assertEqual(res, f'node{self.area_overpass}->.; way{self.area_overpass}->.; node..;->.;')
 
         # recurse
         n = Node(self.area)
         res = ''.join(ch for ch in n.recurse('<').__str__() if not ch.isupper())
-        self.assertEqual(res, f'node{self.area_overpass}->.;\n(.; < ;)->.;')
+        self.assertEqual(res, f'node{self.area_overpass}->.; (.; < ;)->.;')
 
     def test_area_constructor(self):
         # rest type error
@@ -93,8 +93,16 @@ class TesHarvest(unittest.TestCase):
         # self.assertEqual(a.coords, [(0, 0), (1, 1)])
 
     def test_BaseMeta(self):
+        # test of access to config attribute
         s = Statement(self.element, self.area,  self.tag)
         self.assertEqual(s.lonlat, open_json('config.json').get('lonlat'))
+        s.lonlat = True
+
+        # test of changing of attribute
+        n = Node(self.area, tag=self.tag)
+        n.lonlat = False
+        self.assertEqual(s.lonlat, n.lonlat)
+        s.lonlat = True
 
 
 

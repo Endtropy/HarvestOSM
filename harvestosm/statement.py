@@ -6,7 +6,7 @@ from shapely.ops import transform
 from harvestosm.decorators import wra2plist
 from shapely.geometry.base import BaseGeometry
 from shapely.geometry import shape
-from harvestosm.base import BaseMeta
+from harvestosm.base import BaseMeta, ConfigMeta
 from harvestosm.overpass import Overpass
 
 # shared name iterator
@@ -19,7 +19,7 @@ gen_name = get_name().__iter__()
 
 
 class Area(metaclass=BaseMeta):
-    CONFIG = BASE_PATH / 'config.json' # define together with BaseMeta metaclass config properties
+    # CONFIG = BASE_PATH / 'config.json' # define together with BaseMeta metaclass config properties
 
     def __init__(self, geom):
         if isinstance(geom, BaseGeometry) and geom.type in ['Polygon', 'MultiPolygon']:
@@ -120,7 +120,7 @@ class Statement(metaclass=BaseMeta):
         lonlat - (bool, defoult: True) Parameter specify order of coordinates in input geometry. If true, order of
                                        coordinates is changed into order required by overpass i.e lat lon
     """
-    CONFIG = BASE_PATH / 'config.json' # define together with BaseMeta metaclass config properties
+    # CONFIG = BASE_PATH / 'config.json' # define together with BaseMeta metaclass config properties
 
     def __init__(self, element, area, tag=None):
 
@@ -197,6 +197,7 @@ if __name__ == '__main__':
     with open(p, 'r') as file:
         area = geojson.load(file)
     q = Way(area, tag='building')
+    q.lonlat
     print()
 
 
