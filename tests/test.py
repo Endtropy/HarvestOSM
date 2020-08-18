@@ -13,6 +13,7 @@ class TesHarvest(unittest.TestCase):
         self.area_overpass = '(poly: "0.0 0.0 0.0 1.0 1.0 1.0 1.0 0.0 0.0 0.0")'
         self.tag_dict = {'key1': 'value1', 'key2': 'value2'}
         self.tag_list = ['value1', 'value2']
+        self.tag_list2 = ['key1=value1']
         self.poly_shape = Polygon([(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)])
         self.mpoly_shape = MultiPolygon(polygons=[self.poly_shape])
         save2json('config.json', **{'lonlat': True})
@@ -49,6 +50,10 @@ class TesHarvest(unittest.TestCase):
         t = Node(self.area, tag=['value1', 'value2'])
         res = ''.join(ch for ch in t.__str__() if not ch.isupper())
         self.assertEqual(res, f'node{self.area_overpass}->.; node.["value1"]["value2"]->.;')
+
+        t = Node(self.area, tag=self.tag_list2)
+        res = ''.join(ch for ch in t.__str__() if not ch.isupper())
+        self.assertEqual(res, f'node{self.area_overpass}->.; node.["key1=value1"]->.;')
 
     def test_math(self):
         # union

@@ -1,11 +1,10 @@
 from setuptools import setup, find_packages
-from pkg_resources import resource_string
 
 setup(
     name="harvestosm",
     packages=find_packages(),
     package_data={"": ["*.json"]},
-    version="0.4",
+    version="0.6",
     description="Tool for  generating Overpass queries and harvesting data from OpenStreetMap",
     long_description="See README.md",
     author="Michal Opletal",
@@ -19,6 +18,6 @@ setup(
         "Topic :: Scientific/Engineering :: GIS",
         "Topic :: Utilities",
     ],
-    install_requires=["requests>=2.22.0", "geojson>=2.5.0", "geopandas>=0.8","shapely"],
+    install_requires=["requests>=2.22.0", "geojson>=2.5.0", "geopandas>=0.8", "shapely>=1.6.4"],
     extras_require={"test": ["unittest"]},
 )

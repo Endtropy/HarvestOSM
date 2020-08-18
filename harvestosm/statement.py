@@ -14,7 +14,6 @@ gen_name = get_name().__iter__()
 
 # TODO:
 # dodelat geometrii podel linie a bod, zatim to hazi typeerror
-# geopandas output
 
 
 class Area(metaclass=BaseMeta):
@@ -117,6 +116,11 @@ class Statement(metaclass=BaseMeta):
     Parameters:
         lonlat - (bool, defoult: True) Parameter specify order of coordinates in input geometry. If true, order of
                                        coordinates is changed into order required by overpass i.e lat lon
+        overpass_timeout (int, default = 360) specify overpass timeout header i.e. [timeout:360]
+        overpass_out_format (str, default = 'json') specify overpass output format i.e. [out:json]
+        overpass_maxsize (int, default = 1073741824)  specify overpass max output size i.e. [maxsize:1073741824]
+        overpass_out (str, default ='out body geom') specify overpass output
+        overpass_endpoint "https://overpass-api.de/api/interpreter"
     """
     def __init__(self, element, area, tag=None):
 
@@ -189,18 +193,3 @@ class Node(Statement):
 class Way(Statement):
     def __init__(self, area, tag=None):
         super().__init__('way', area, tag)
-
-
-if __name__ == '__main__':
-    import geojson
-    import geopandas
-    p = "C:\Michal\gisat\projects\PUCS\singleparts.geojson"
-    with open(p, 'r') as file:
-        area = geojson.load(file)
-    q = Way(area, tag='building')
-    q.lonlat
-    print()
-
-
-
-
