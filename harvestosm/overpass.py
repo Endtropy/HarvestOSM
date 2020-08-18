@@ -2,7 +2,7 @@ import requests
 from harvestosm.base import BaseMeta
 from harvestosm.utils import BASE_PATH, open_json
 import geojson
-import geopandas
+from geopandas import GeoDataFrame
 
 class Overpass(metaclass=BaseMeta):
     CONFIG = BASE_PATH / 'config.json' # define together with BaseMeta metaclass config properties
@@ -25,7 +25,6 @@ class Overpass(metaclass=BaseMeta):
         if not Overpass.query_check(query) == Overpass.query_check(self._query):
             self._query = query
             self.request_overpass
-            self._geojson = Overpass._get_collection(self._osm_json['elements'])
 
     @staticmethod
     def query_check(query):
@@ -69,15 +68,18 @@ class Overpass(metaclass=BaseMeta):
 
     @property
     def geojson(self):
-        if self._geojson is not None:
+        if self._geojson is None:
+            self._geojson = Overpass._get_collection(self._osm_json['elements'])
             return self._geojson
+        return self._geojson
 
-    # @property
-    # def gpd(self):
-    #     features = self.geojson
-    #
-    #     return geopandas.GeoDataFrame.from_features(features, crs={'init':'epsg:3857'})
-    #
+    @property
+    def gpd(self):
+        if self._gpd is None:
+            self._gpd = GeoDataFrame.from_features(self.geojson, crs={'init':'epsg:3857'})
+            return self._gpd
+        return self._gpd
+
     @staticmethod
     def _get_collection(elements):
         """Parse overpass json into geojson - multipolygon is not implemented"""

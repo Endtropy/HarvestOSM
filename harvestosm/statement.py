@@ -14,12 +14,10 @@ gen_name = get_name().__iter__()
 
 # TODO:
 # dodelat geometrii podel linie a bod, zatim to hazi typeerror
-# cached config
 # geopandas output
 
 
 class Area(metaclass=BaseMeta):
-    # CONFIG = BASE_PATH / 'config.json' # define together with BaseMeta metaclass config properties
 
     def __init__(self, geom):
         if isinstance(geom, BaseGeometry) and geom.type in ['Polygon', 'MultiPolygon']:
@@ -120,8 +118,6 @@ class Statement(metaclass=BaseMeta):
         lonlat - (bool, defoult: True) Parameter specify order of coordinates in input geometry. If true, order of
                                        coordinates is changed into order required by overpass i.e lat lon
     """
-    # CONFIG = BASE_PATH / 'config.json' # define together with BaseMeta metaclass config properties
-
     def __init__(self, element, area, tag=None):
 
         area_name = next(gen_name)
@@ -172,13 +168,17 @@ class Statement(metaclass=BaseMeta):
         return ' '.join([f'[timeout:{self.overpass_timeout}][out:{self.overpass_out_format}][maxsize:'
                           f'{self.overpass_maxsize}];', self.__str__(),f'.{self.container.last} {self.overpass_out};'])
 
-    def osm_json(self):
+    def to_osm_json(self):
         self.overpass.query = self.query
         return self.overpass._osm_json
 
     def to_geojson(self):
         self.overpass.query = self.query
         return self.overpass.geojson
+
+    def to_geopandas(self):
+        self.overpass.query = self.query
+        return self.overpass.gpd
 
 
 class Node(Statement):
@@ -193,6 +193,7 @@ class Way(Statement):
 
 if __name__ == '__main__':
     import geojson
+    import geopandas
     p = "C:\Michal\gisat\projects\PUCS\singleparts.geojson"
     with open(p, 'r') as file:
         area = geojson.load(file)

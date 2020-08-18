@@ -15,7 +15,7 @@ class TesHarvest(unittest.TestCase):
         self.tag_list = ['value1', 'value2']
         self.poly_shape = Polygon([(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)])
         self.mpoly_shape = MultiPolygon(polygons=[self.poly_shape])
-        save2json('config.json', **{'lonlat':True})
+        save2json('config.json', **{'lonlat': True})
 
 
     def test_statement_costruct(self):
@@ -103,8 +103,6 @@ class TesHarvest(unittest.TestCase):
         n.lonlat = False
         self.assertEqual(s.lonlat, n.lonlat)
         s.lonlat = True
-
-
 
 
 if __name__ == '__main__':
